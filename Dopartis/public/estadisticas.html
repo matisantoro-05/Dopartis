@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dopartis – Estadísticas</title>
+  <meta name="description" content="Resultados de fútbol en tiempo real. Ligas de Sudamérica y Europa, Champions League, Copa Libertadores y más." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+  
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <a href="/" class="logo">DO<span>PARTIS</span></a>
+    <nav class="header-nav">
+      <a href="/" class="">Resultados</a>
+      <a href="/tablas.html" class="">Tablas</a>
+      <a href="/estadisticas.html" class="active">Estadísticas</a>
+      <a href="/equipos.html" class="">Equipos</a>
+      <a href="/campeones.html">Campeones</a>
+    </nav>
+    <div class="header-right">
+      <button class="theme-toggle" onclick="toggleTheme()" title="Cambiar tema" id="theme-btn">🌙</button>
+      <div class="live-indicator"><div class="live-dot"></div>EN VIVO</div>
+    </div>
+  </div>
+</header>
+
+
+<div class="ad-wrap">
+  <div class="ad-slot top">Publicidad · 728×90</div>
+</div>
+
+<div class="refresh-bar">
+  <span class="last-update" id="last-update">Cargando...</span>
+  <button class="refresh-btn" onclick="refreshCurrentView()">↻ Actualizar</button>
+</div>
+
+<div class="main">
+  <div class="content-col">
+    <div id="view-scorers">
+      <div class="league-tabs-wrap" id="scorers-league-tabs"></div>
+      <div class="arg-tabs" id="scorers-comp-tabs" style="display:none;"></div>
+      <div class="stats-tabs" id="stats-sub-tabs" style="border-top:1px solid var(--border);margin-top:4px;padding-top:10px;">
+        <button class="stats-tab active" onclick="switchStatTab('scorers')">⚽ Goleadores</button>
+        <button class="stats-tab" onclick="switchStatTab('assists')">🎯 Asistidores</button>
+        <button class="stats-tab" onclick="switchStatTab('yellow')">🟨 Amarillas</button>
+        <button class="stats-tab" onclick="switchStatTab('red')">🟥 Rojas</button>
+      </div>
+      <div id="scorers-container"><div class="loader-wrap"><div class="spinner"></div></div></div>
+    </div>
+  </div>
+
+  <aside class="sidebar">
+    <div class="ad-slot box">Publicidad · 300×250</div>
+    <div style="margin-top:16px;">
+      <div class="ad-slot" style="width:100%;height:600px;">Publicidad · 300×600</div>
+    </div>
+  </aside>
+</div>
+
+<footer>
+  <div class="footer-logo">DO<span>PARTIS</span></div>
+  <p>Resultados y estadísticas de fútbol en tiempo real</p>
+  <div><a href="/">Inicio</a><a href="#">Ligas</a><a href="#">Contacto</a><a href="#">Privacidad</a></div>
+  <p style="margin-top:14px;font-size:14px;">© 2026 Dopartis. Todos los derechos reservados.</p>
+</footer>
+
+<script src="js/shared.js"></script>
+<script src="js/estadisticas.js"></script>
+</body>
+</html>

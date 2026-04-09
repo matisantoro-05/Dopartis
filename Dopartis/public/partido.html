@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dopartis – Partido</title>
+  <meta name="description" content="Resultados de fútbol en tiempo real. Ligas de Sudamérica y Europa, Champions League, Copa Libertadores y más." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+  
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <a href="/" class="logo">DO<span>PARTIS</span></a>
+    <nav class="header-nav">
+      <a href="/" class="">Resultados</a>
+      <a href="/tablas.html" class="">Tablas</a>
+      <a href="/estadisticas.html" class="">Estadísticas</a>
+      <a href="/equipos.html" class="">Equipos</a>
+    </nav>
+    <div class="header-right">
+      <button class="theme-toggle" onclick="toggleTheme()" title="Cambiar tema" id="theme-btn">🌙</button>
+      <div class="live-indicator"><div class="live-dot"></div>EN VIVO</div>
+    </div>
+  </div>
+</header>
+
+
+<div class="ad-wrap">
+  <div class="ad-slot top">Publicidad · 728×90</div>
+</div>
+
+<div class="main" style="grid-template-columns:1fr;">
+  <div class="content-col">
+    <div id="partido-container" style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;overflow:hidden;">
+      <!-- renderModal writes to #modal-content -->
+      <div id="modal-content">
+        <div class="modal-loader"><div class="spinner"></div><span>Cargando partido...</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-logo">DO<span>PARTIS</span></div>
+  <p>Resultados y estadísticas de fútbol en tiempo real</p>
+  <div><a href="/">Inicio</a><a href="#">Ligas</a><a href="#">Contacto</a><a href="#">Privacidad</a></div>
+  <p style="margin-top:14px;font-size:14px;">© 2026 Dopartis. Todos los derechos reservados.</p>
+</footer>
+
+<script src="js/shared.js"></script>
+<script src="js/partido.js"></script>
+<script>initPartidoPage();</script>
+</body>
+</html>
