@@ -132,8 +132,9 @@ function buildTeamsLeagueTabs() {
   panel.className = "league-selector-panel";
 
   const GROUPS_EQ = [
-    { continent:"América", ids:["arg","bra","uru","chi","col"] },
-    { continent:"Europa",  ids:["epl","esp","ita","ger","fra","por"] },
+    { continent:"América", ids:["arg","bra","uru","chi","col","per","ecu","par","mex","usa"] },
+    { continent:"Europa",  ids:["epl","esp","ita","ger","fra","por","ned"] },
+    { continent:"Asia / Medio Oriente", ids:["sau"] },
   ];
 
   GROUPS_EQ.forEach(group => {
@@ -199,7 +200,7 @@ async function loadTeamsFull(lid) {
       const total = tr.l + tr.c + tr.i;
       const logoEl = `<div style="width:44px;height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><img src="${t.logo}" style="width:100%;height:100%;object-fit:contain;" onerror="this.style.display='none'"></div>`;
       const numStyle = `font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:28px;line-height:1;text-align:center;`;
-      return `<tr>
+      return `<tr class="team-table-row" onclick="openTeam(${t.id},'${t.name.replace(/'/g,"\\'")}')">
         <td style="text-align:left;min-width:200px;">
           <div style="display:flex;align-items:center;gap:12px;">${logoEl}<span style="font-size:17px;font-weight:600;">${t.name}</span></div>
         </td>
@@ -248,4 +249,451 @@ document.addEventListener("DOMContentLoaded", () => {
 function refreshCurrentView() {
   loadTeamsView();
   loadSidebarStandings(document.getElementById("sb-standings-sel").value);
+}
+// ═══════════════════════════════════════════════════════════════════
+// TEAM MODAL
+// ═══════════════════════════════════════════════════════════════════
+let teamModalTab = "principal";
+let _teamCache   = {};
+let _currentTeamId = null;
+
+function slugifyTeam(name) {
+  return (name ?? "").toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function openTeam(teamId, teamName) {
+  _currentTeamId = teamId;
+  teamModalTab = "principal";
+  document.getElementById("team-modal").classList.add("open");
+  document.body.style.overflow = "hidden";
+  const slug = slugifyTeam(teamName);
+  history.pushState({ teamId, slug }, "", `/equipo/${slug}?id=${teamId}`);
+  loadTeamModalData(teamId);
+}
+
+function closeTeamModal() {
+  document.getElementById("team-modal").classList.remove("open");
+  document.body.style.overflow = "";
+  _currentTeamId = null;
+  history.pushState({}, "", "/equipos.html");
+}
+
+function closeTeamModalOnOverlay(e) {
+  if (e.target === document.getElementById("team-modal")) closeTeamModal();
+}
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && document.getElementById("team-modal")?.classList.contains("open")) closeTeamModal();
+});
+
+window.addEventListener("popstate", e => {
+  if (e.state?.teamId) {
+    openTeam(e.state.teamId, "");
+  } else {
+    const modal = document.getElementById("team-modal");
+    if (modal?.classList.contains("open")) {
+      modal.classList.remove("open");
+      document.body.style.overflow = "";
+      _currentTeamId = null;
+    }
+  }
+});
+
+// Check URL on load
+(function checkDirectTeamURL() {
+  if (!window.location.pathname.startsWith("/equipo/")) return;
+  const params = new URLSearchParams(window.location.search);
+  const id = parseInt(params.get("id"));
+  if (!id) return;
+  window.addEventListener("DOMContentLoaded", () => openTeam(id, ""));
+})();
+
+async function loadTeamModalData(teamId) {
+  const box = document.getElementById("team-modal-content");
+  box.innerHTML = `<div class="modal-loader"><div class="spinner"></div><span>Cargando equipo...</span></div>`;
+
+  try {
+    const season = new Date().getFullYear();
+    const [infoRes, squadRes, playersRes] = await Promise.allSettled([
+      apiFetch(`/api/team/info?teamid=${teamId}`),
+      apiFetch(`/api/team/squad?teamid=${teamId}`),
+      apiFetch(`/api/team/players?teamid=${teamId}&season=${season}`),
+    ]);
+    const info    = infoRes.status    === "fulfilled" ? infoRes.value    : null;
+    const squad   = squadRes.status   === "fulfilled" ? squadRes.value   : null;
+    const players = playersRes.status === "fulfilled" ? playersRes.value : null;
+
+    const teamInfo  = info?.response?.[0] ?? null;
+    const squadData = squad?.response?.[0]?.players ?? [];
+    // Build a map of player id → contract/nationality from /players endpoint
+    const playerDetails = {};
+    (players?.response ?? []).forEach(p => {
+      if (p.player?.id) playerDetails[p.player.id] = p;
+    });
+
+    _teamCache[teamId] = { teamInfo, squadData, playerDetails };
+    renderTeamModal(teamId, teamInfo, squadData);
+  } catch(e) {
+    box.innerHTML = `<div class="modal-error">Error al cargar el equipo: ${e.message}</div>`;
+  }
+}
+
+function renderTeamModal(teamId, teamInfo, squadData) {
+  const name   = teamInfo?.team?.name   ?? "Equipo";
+  const logo   = teamInfo?.team?.logo   ?? null;
+  const box    = document.getElementById("team-modal-content");
+
+  const tabs = ["principal","plantel","partidos","títulos","historial"];
+  box.innerHTML = `
+    <div class="modal-header" style="position:relative;">
+      <div style="grid-column:1/-1;display:flex;flex-direction:column;align-items:center;gap:10px;padding:4px 0 8px;">
+        ${logo ? `<img src="${logo}" style="width:72px;height:72px;object-fit:contain;" onerror="this.style.display='none'">` : ""}
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:26px;letter-spacing:1px;text-align:center;">${name}</div>
+      </div>
+      <button class="modal-close" onclick="closeTeamModal()">✕</button>
+    </div>
+    <div class="modal-tabs" id="team-modal-tabs">
+      ${tabs.map(t => `<button class="modal-tab ${t === teamModalTab ? "active" : ""}" onclick="switchTeamTab('${t}',${teamId})">${t.charAt(0).toUpperCase()+t.slice(1)}</button>`).join("")}
+    </div>
+    <div class="modal-body" id="team-modal-body">
+      ${renderTeamTab(teamModalTab, teamId, teamInfo, squadData)}
+    </div>
+  `;
+}
+
+function switchTeamTab(tab, teamId) {
+  teamModalTab = tab;
+  document.querySelectorAll("#team-modal-tabs .modal-tab").forEach(b =>
+    b.classList.toggle("active", b.textContent.toLowerCase() === tab)
+  );
+  const body = document.getElementById("team-modal-body");
+  const cached = _teamCache[teamId];
+  if (!cached) return;
+
+  if (tab === "partidos" || tab === "títulos") {
+    body.innerHTML = `<div class="modal-loader"><div class="spinner"></div><span>Cargando...</span></div>`;
+    renderTeamTabAsync(tab, teamId, cached.teamInfo, cached.squadData).then(html => {
+      if (body) body.innerHTML = html;
+    });
+  } else {
+    body.innerHTML = renderTeamTab(tab, teamId, cached.teamInfo, cached.squadData);
+  }
+}
+
+function renderTeamTab(tab, teamId, teamInfo, squadData) {
+  if (tab === "principal")  return renderTeamPrincipal(teamInfo, teamId);
+  if (tab === "plantel")    return renderTeamSquad(squadData, _teamCache[teamId]?.playerDetails ?? {});
+  if (tab === "historial")  return renderTeamHistorial(teamId);
+  // async tabs get placeholder
+  return `<div class="modal-loader"><div class="spinner"></div><span>Cargando...</span></div>`;
+}
+
+async function renderTeamTabAsync(tab, teamId, teamInfo, squadData) {
+  if (tab === "partidos") return await renderTeamFixtures(teamId);
+  if (tab === "títulos")  return await renderTeamTrophies(teamId);
+  return "";
+}
+
+// On tab click for async tabs, trigger immediately
+function switchTeamTab(tab, teamId) {
+  teamModalTab = tab;
+  document.querySelectorAll("#team-modal-tabs .modal-tab").forEach(b =>
+    b.classList.toggle("active", b.textContent.toLowerCase() === tab)
+  );
+  const body = document.getElementById("team-modal-body");
+  const cached = _teamCache[teamId];
+  if (!cached) return;
+
+  const syncTabs = ["principal","plantel","historial"];
+  if (syncTabs.includes(tab)) {
+    body.innerHTML = renderTeamTab(tab, teamId, cached.teamInfo, cached.squadData);
+  } else {
+    body.innerHTML = `<div class="modal-loader"><div class="spinner"></div><span>Cargando...</span></div>`;
+    (async () => {
+      const html = await renderTeamTabAsync(tab, teamId, cached.teamInfo, cached.squadData);
+      const b2 = document.getElementById("team-modal-body");
+      if (b2) b2.innerHTML = html;
+    })();
+  }
+}
+
+// ── TAB: PRINCIPAL ────────────────────────────────────────────────
+// ── Apodos manuales (la API no los provee) ────────────────────────
+const TEAM_NICKNAMES = {
+  // Premier League
+  33:"Red Devils", 40:"The Reds", 50:"Citizens", 42:"Gunners", 49:"Blues",
+  66:"Villans", 47:"Spurs", 34:"Magpies", 35:"Cherries", 36:"Cottagers",
+  45:"Toffees", 46:"Foxes", 48:"Hammers", 51:"Seagulls", 52:"Eagles",
+  65:"Tricky Trees",
+  // LaLiga
+  541:"Los Blancos", 529:"Blaugranas", 530:"Colchoneros", 548:"Nervionenses",
+  533:"El Submarino Amarillo", 536:"Béticos", 531:"Athletic", 532:"Che",
+  543:"La Real",
+  // Serie A
+  496:"La Vecchia Signora", 489:"La Beneamata", 497:"Rossoneri",
+  499:"Biancocelesti", 492:"Partenopei", 487:"Giallorossi", 488:"La Dea",
+  // Bundesliga
+  157:"Bayern", 165:"BVB", 168:"Werkself", 169:"Adler",
+  // Ligue 1
+  85:"Les Parisiens", 80:"Les Gones", 81:"Les Phocéens", 82:"Les Dogues",
+  97:"Les Monégasques",
+  // Argentina
+  442:"El Millonario", 435:"El Xeneize", 440:"La Academia",
+  436:"El Rojo", 444:"El Ciclón", 433:"El Pincha",
+  439:"El Globo", 437:"El Canalla", 438:"El Fortín",
+};
+
+function renderTeamPrincipal(teamInfo, teamId) {
+  if (!teamInfo) return `<div class="modal-error">Sin datos del equipo.</div>`;
+  const t   = teamInfo.team;
+  const v   = teamInfo.venue;
+  const founded = t?.founded ?? "–";
+  const nickname = TEAM_NICKNAMES[teamId] ?? TEAM_NICKNAMES[t?.id] ?? t?.name ?? "–";
+  const venueName   = v?.name   ?? "–";
+  const venueAddr   = v?.address ?? "–";
+  const venueCity   = v?.city   ?? "–";
+  const venueImg    = v?.image  ?? null;
+  const venueCapacity = v?.capacity ? `${v.capacity.toLocaleString()} espectadores` : "–";
+
+  return `
+    <div class="info-grid" style="gap:14px;">
+      <div class="info-card">
+        <div class="info-card-title">Apodo</div>
+        <div class="info-card-val">${nickname}</div>
+      </div>
+      <div class="info-card">
+        <div class="info-card-title">Año de Fundación</div>
+        <div class="info-card-val accent">${founded}</div>
+      </div>
+      <div class="info-card" style="grid-column:1/-1;">
+        <div class="info-card-title">Estadio</div>
+        <div class="info-card-val" style="font-size:20px;margin-bottom:4px;">${venueName}</div>
+        <div style="font-size:14px;color:var(--light);margin-bottom:2px;">📍 ${venueAddr}, ${venueCity}</div>
+        <div style="font-size:14px;color:var(--text);opacity:.8;">👥 ${venueCapacity}</div>
+        ${venueImg ? `<img src="${venueImg}" style="width:100%;border-radius:8px;margin-top:12px;object-fit:cover;max-height:200px;" onerror="this.style.display='none'">` : ""}
+      </div>
+    </div>
+  `;
+}
+
+// ── TAB: PLANTEL ──────────────────────────────────────────────────
+function renderTeamSquad(players, playerDetails) {
+  if (!players || !players.length) return `<div class="modal-error">Sin datos del plantel.</div>`;
+
+  const posOrder = { Goalkeeper:0, Defender:1, Midfielder:2, Attacker:3 };
+  const posLabel = { Goalkeeper:"Arqueros", Defender:"Defensores", Midfielder:"Mediocampistas", Attacker:"Delanteros" };
+  const sorted = [...players].sort((a,b) => (posOrder[a.position]??9) - (posOrder[b.position]??9));
+  const groups = {};
+  sorted.forEach(p => {
+    const pos = p.position ?? "Other";
+    if (!groups[pos]) groups[pos] = [];
+    groups[pos].push(p);
+  });
+
+  let html = `<div style="display:flex;flex-direction:column;gap:18px;">`;
+  Object.entries(groups).forEach(([pos, list]) => {
+    html += `<div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:14px;letter-spacing:1px;text-transform:uppercase;color:var(--accent2);padding:6px 0 8px;border-bottom:1px solid var(--border);margin-bottom:8px;">${posLabel[pos] ?? pos}</div>
+      <div style="display:flex;flex-direction:column;gap:2px;">`;
+    list.forEach(p => {
+      const det  = playerDetails[p.id] ?? null;
+      const nat  = det?.player?.nationality ?? p.nationality ?? null;
+      const age  = det?.player?.age ?? p.age ?? null;
+      const height = det?.player?.height ?? p.height ?? null;
+      const contractEnd = det?.statistics?.[0]?.games?.contract?.end ?? null;
+      const num  = p.number ? `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:16px;color:var(--light);width:24px;text-align:center;flex-shrink:0;">${p.number}</span>` : `<span style="width:24px;flex-shrink:0;"></span>`;
+      const photo = p.photo ? `<img src="${p.photo}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;" onerror="this.style.display='none'">` : "";
+      const subInfo = [
+        nat ? `<span style="font-size:12px;color:var(--muted);">${nat}</span>` : "",
+        contractEnd ? `<span style="font-size:11px;color:var(--muted);">Contrato: hasta ${contractEnd}</span>` : "",
+      ].filter(Boolean).join(" · ");
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid rgba(46,51,71,.4);">
+        ${num}${photo}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name ?? "–"}</div>
+          ${subInfo ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:1px;">${subInfo}</div>` : ""}
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          ${age ? `<div style="font-size:13px;color:var(--light);">${age} años</div>` : ""}
+          ${height ? `<div style="font-size:12px;color:var(--muted);">${height}</div>` : ""}
+        </div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  });
+  html += `</div>`;
+  return html;
+}
+
+// ── TAB: PARTIDOS ─────────────────────────────────────────────────
+async function renderTeamFixtures(teamId) {
+  try {
+    const season = new Date().getFullYear();
+    const [lastRes, nextRes] = await Promise.allSettled([
+      apiFetch(`/api/team/fixtures?teamid=${teamId}&season=${season}&last=15`),
+      apiFetch(`/api/team/fixtures?teamid=${teamId}&season=${season}&next=10`),
+    ]);
+    const lastMatches = (lastRes.status === "fulfilled" ? lastRes.value?.response ?? [] : []).reverse();
+    const nextMatches = nextRes.status === "fulfilled" ? nextRes.value?.response ?? [] : [];
+
+    const matchRow = (m, isPast) => {
+      const home   = m.teams?.home?.name ?? "";
+      const away   = m.teams?.away?.name ?? "";
+      const hg     = m.goals?.home;
+      const ag     = m.goals?.away;
+      const date   = m.fixture?.date ? new Date(m.fixture.date) : null;
+      const dateStr = date ? date.toLocaleDateString("es-AR", {day:"2-digit",month:"2-digit",year:"numeric",timeZone:"America/Argentina/Buenos_Aires"}) : "–";
+      const timeStr = date ? date.toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit",timeZone:"America/Argentina/Buenos_Aires",hour12:false}) : null;
+      const isHome  = m.teams?.home?.id == teamId;
+      const rival   = isHome ? away : home;
+      const rivalLogo = isHome ? (m.teams?.away?.logo ?? null) : (m.teams?.home?.logo ?? null);
+      const locVis  = isHome ? "🏠 Local" : "✈️ Visitante";
+      const score   = isPast && hg !== null ? (isHome ? `${hg} - ${ag}` : `${ag} - ${hg}`) : null;
+      const scoreColor = isPast && hg !== null
+        ? (isHome ? (hg > ag ? "var(--accent)" : hg < ag ? "var(--live)" : "var(--muted)") : (ag > hg ? "var(--accent)" : ag < hg ? "var(--live)" : "var(--muted)"))
+        : "var(--text)";
+      const logoEl = rivalLogo ? `<img src="${rivalLogo}" style="width:24px;height:24px;object-fit:contain;flex-shrink:0;" onerror="this.style.display='none'">` : "";
+      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid rgba(46,51,71,.4);">
+        ${logoEl}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${rival}</div>
+          <div style="font-size:12px;color:var(--muted);">${dateStr}${timeStr ? " · " + timeStr : ""} · ${locVis}</div>
+        </div>
+        ${score ? `<div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:22px;color:${scoreColor};flex-shrink:0;">${score}</div>` : ""}
+      </div>`;
+    };
+
+    let html = `<div style="display:flex;flex-direction:column;gap:20px;">`;
+
+    html += `<div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:14px;letter-spacing:1px;text-transform:uppercase;color:var(--accent2);padding:6px 0 8px;border-bottom:1px solid var(--border);margin-bottom:8px;">Últimos Partidos</div>`;
+    if (lastMatches.length) html += lastMatches.map(m => matchRow(m, true)).join("");
+    else html += `<div style="color:var(--muted);font-size:14px;padding:12px 0;">Sin partidos recientes.</div>`;
+    html += `</div>`;
+
+    html += `<div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:14px;letter-spacing:1px;text-transform:uppercase;color:var(--accent2);padding:6px 0 8px;border-bottom:1px solid var(--border);margin-bottom:8px;">Próximos Partidos</div>`;
+    if (nextMatches.length) html += nextMatches.map(m => matchRow(m, false)).join("");
+    else html += `<div style="color:var(--muted);font-size:14px;padding:12px 0;">Sin próximos partidos.</div>`;
+    html += `</div></div>`;
+
+    return html;
+  } catch(e) {
+    return `<div class="modal-error">Error cargando partidos: ${e.message}</div>`;
+  }
+}
+
+// ── TAB: TÍTULOS ──────────────────────────────────────────────────
+async function renderTeamTrophies(teamId) {
+  try {
+    const data = await apiFetch(`/api/trophies?teamid=${teamId}`);
+    const all  = data?.response ?? [];
+    if (!all.length) return `<div class="modal-error" style="padding:24px;">Sin datos de títulos.</div>`;
+
+    const won = all.filter(t => t.place === "Winner" || t.place === "1st");
+    const nac = won.filter(t => !["UEFA Champions League","Copa Libertadores","Copa Sudamericana","UEFA Europa League","UEFA Conference League","FIFA Club World Cup"].includes(t.league));
+    const intl = won.filter(t => ["UEFA Champions League","Copa Libertadores","Copa Sudamericana","UEFA Europa League","UEFA Conference League","FIFA Club World Cup"].includes(t.league));
+
+    const block = (title, list) => {
+      if (!list.length) return "";
+      const sorted = [...list].sort((a,b) => (b.season?.split("/")[0] ?? b.season ?? 0) - (a.season?.split("/")[0] ?? a.season ?? 0));
+      return `<div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:14px;letter-spacing:1px;text-transform:uppercase;color:var(--accent2);padding:6px 0 8px;border-bottom:1px solid var(--border);margin-bottom:8px;">${title} <span style="color:var(--accent);font-size:18px;">(${list.length})</span></div>
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          ${sorted.map(t => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 4px;border-bottom:1px solid rgba(46,51,71,.4);">
+            <span style="font-size:15px;font-weight:600;">${t.league}</span>
+            <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:18px;color:var(--accent);">${t.season ?? "–"}</span>
+          </div>`).join("")}
+        </div>
+      </div>`;
+    };
+
+    return `<div style="display:flex;flex-direction:column;gap:20px;">
+      ${block("Títulos Nacionales", nac)}
+      ${block("Títulos Internacionales", intl)}
+      ${!nac.length && !intl.length ? `<div class="modal-error">Sin títulos registrados.</div>` : ""}
+    </div>`;
+  } catch(e) {
+    return `<div class="modal-error">Error cargando títulos: ${e.message}</div>`;
+  }
+}
+
+// ── TAB: HISTORIAL ────────────────────────────────────────────────
+// Datos manuales — estructura: TEAM_HISTORY[teamId] = { nacional: [...], internacional: [...] }
+// Cada item: { equipo, pj, pg, pe, pp }
+const TEAM_HISTORY = {
+  // Ejemplo placeholder — editar manualmente
+  // 442: {
+  //   nacional: [{ equipo:"Boca Juniors", pj:300, pg:120, pe:80, pp:100 }],
+  //   internacional: [{ equipo:"Flamengo", pj:10, pg:5, pe:2, pp:3 }]
+  // }
+};
+
+let _historialSubTab = "nacional";
+
+function renderTeamHistorial(teamId) {
+  const data = TEAM_HISTORY[teamId];
+
+  const histTable = (rows, count) => {
+    // Fill up to `count` rows with empty placeholders
+    const filled = [...(rows ?? [])];
+    while (filled.length < count) filled.push(null);
+
+    return `<div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:15px;">
+        <thead><tr style="background:var(--bg3);position:sticky;top:0;">
+          <th style="text-align:center;padding:7px 6px;font-size:13px;color:var(--light);font-weight:700;width:36px;"></th>
+          <th style="text-align:left;padding:7px 8px;font-size:13px;color:var(--light);font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Equipo</th>
+          <th style="text-align:center;padding:7px 6px;font-size:13px;color:var(--light);font-weight:700;">PJ</th>
+          <th style="text-align:center;padding:7px 6px;font-size:13px;color:var(--accent);font-weight:700;">G</th>
+          <th style="text-align:center;padding:7px 6px;font-size:13px;color:var(--muted);font-weight:700;">E</th>
+          <th style="text-align:center;padding:7px 6px;font-size:13px;color:var(--live);font-weight:700;">P</th>
+          <th style="text-align:center;padding:7px 6px;font-size:13px;color:var(--light);font-weight:700;">DIF</th>
+        </tr></thead>
+        <tbody>
+          ${filled.map(r => {
+            if (!r) return `<tr style="border-bottom:1px solid rgba(46,51,71,.25);">
+              <td style="padding:7px 6px;"><div style="width:24px;height:24px;background:var(--border);border-radius:50%;opacity:.25;"></div></td>
+              <td style="padding:7px 8px;"><div style="height:12px;background:var(--border);border-radius:4px;width:60%;opacity:.25;"></div></td>
+              <td colspan="5"></td>
+            </tr>`;
+            const dif = (r.pg ?? 0) - (r.pp ?? 0);
+            const logoEl = r.logo ? `<img src="${r.logo}" style="width:24px;height:24px;object-fit:contain;" onerror="this.style.display='none'">` : `<div style="width:24px;height:24px;background:var(--border);border-radius:50%;opacity:.3;"></div>`;
+            return `<tr style="border-bottom:1px solid rgba(46,51,71,.4);">
+              <td style="padding:7px 6px;text-align:center;">${logoEl}</td>
+              <td style="padding:7px 8px;font-weight:600;">${r.equipo}</td>
+              <td style="text-align:center;padding:7px 6px;font-family:'Barlow Condensed',sans-serif;font-weight:700;">${r.pj ?? 0}</td>
+              <td style="text-align:center;padding:7px 6px;font-family:'Barlow Condensed',sans-serif;font-weight:900;color:var(--accent);">${r.pg ?? 0}</td>
+              <td style="text-align:center;padding:7px 6px;font-family:'Barlow Condensed',sans-serif;font-weight:700;color:var(--muted);">${r.pe ?? 0}</td>
+              <td style="text-align:center;padding:7px 6px;font-family:'Barlow Condensed',sans-serif;font-weight:700;color:var(--live);">${r.pp ?? 0}</td>
+              <td style="text-align:center;padding:7px 6px;font-family:'Barlow Condensed',sans-serif;font-weight:800;color:${dif>0?"var(--accent)":dif<0?"var(--live)":"var(--muted)"};">${dif>0?"+":""}${dif}</td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>`;
+  };
+
+  const nacRows  = data?.nacional       ?? [];
+  const intRows  = data?.internacional  ?? [];
+
+  const activeNac  = _historialSubTab === "nacional";
+  const tableHTML  = activeNac ? histTable(nacRows, 30) : histTable(intRows, 20);
+
+  return `<div>
+    <!-- Sub-tabs -->
+    <div style="display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:0;">
+      <button onclick="_historialSubTab='nacional';document.getElementById('team-modal-body').innerHTML=renderTeamHistorial(${teamId});"
+        style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:14px;letter-spacing:.5px;text-transform:uppercase;padding:8px 16px;border:none;background:transparent;cursor:pointer;border-bottom:2px solid ${activeNac?"var(--accent2)":"transparent"};color:${activeNac?"var(--accent2)":"var(--light)"};margin-bottom:-1px;transition:all .18s;">
+        🏆 Nacional
+      </button>
+      <button onclick="_historialSubTab='internacional';document.getElementById('team-modal-body').innerHTML=renderTeamHistorial(${teamId});"
+        style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:14px;letter-spacing:.5px;text-transform:uppercase;padding:8px 16px;border:none;background:transparent;cursor:pointer;border-bottom:2px solid ${!activeNac?"var(--accent2)":"transparent"};color:${!activeNac?"var(--accent2)":"var(--light)"};margin-bottom:-1px;transition:all .18s;">
+        🌍 Internacional
+      </button>
+    </div>
+    ${tableHTML}
+  </div>`;
 }

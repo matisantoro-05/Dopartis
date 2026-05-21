@@ -48,12 +48,14 @@ async function loadMatches() {
     } else {
       const lc = LEAGUES.find(l => l.id === activeLeague);
       if (lc?.lid) {
+        // Use the year from the active date so season matches correctly
+        const season = activeDate.split("-")[0];
         // Fetch main league + cup leagues for this country in parallel
         const cupLeagues = LEAGUES.filter(l => l.cup && l.parentId === lc.id);
         const fetches = [
-          apiFetch(`/api/matches/by-date-league?date=${activeDate}&leagueid=${lc.lid}&season=${seasonFor(lc.lid)}`),
+          apiFetch(`/api/matches/by-date-league?date=${activeDate}&leagueid=${lc.lid}&season=${season}`),
           ...cupLeagues.map(c =>
-            apiFetch(`/api/matches/by-date-league?date=${activeDate}&leagueid=${c.lid}&season=${seasonFor(c.lid)}`).catch(() => ({ response:[] }))
+            apiFetch(`/api/matches/by-date-league?date=${activeDate}&leagueid=${c.lid}&season=${season}`).catch(() => ({ response:[] }))
           )
         ];
         const results = await Promise.all(fetches);

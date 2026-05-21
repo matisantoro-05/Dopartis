@@ -1369,6 +1369,13 @@ const CHAMP_DATA = {
     { year:2023, season:"2022/23", name:"West Ham", logo:"https://media.api-sports.io/football/teams/48.png" },
     { year:2022, season:"2021/22", name:"Roma", logo:"https://media.api-sports.io/football/teams/487.png" },
   ]},
+  per_liga: { label: "Liga 1 Perú",           items: [] },
+  ecu_liga: { label: "Liga Pro Ecuador",       items: [] },
+  par_liga: { label: "División Profesional",   items: [] },
+  mex_liga: { label: "Liga MX",                items: [] },
+  usa_liga: { label: "MLS",                    items: [] },
+  ned_liga: { label: "Eredivisie",             items: [] },
+  sau_liga: { label: "Saudi Pro League",       items: [] },
 };
 
 // ── Country/competition mapping ────────────────────────────────────
@@ -1383,6 +1390,16 @@ const CHAMP_COUNTRIES = [
     comps:[ {label:"Liga",key:"chi_liga"} ] },
   { id:"col",  name:"Colombia",    flag:"https://flagcdn.com/w40/co.png",
     comps:[ {label:"Liga",key:"col_liga"} ] },
+  { id:"per",  name:"Perú",        flag:"https://flagcdn.com/w40/pe.png",
+    comps:[ {label:"Liga 1",key:"per_liga"} ] },
+  { id:"ecu",  name:"Ecuador",     flag:"https://flagcdn.com/w40/ec.png",
+    comps:[ {label:"Liga Pro",key:"ecu_liga"} ] },
+  { id:"par",  name:"Paraguay",    flag:"https://flagcdn.com/w40/py.png",
+    comps:[ {label:"División Prof.",key:"par_liga"} ] },
+  { id:"mex",  name:"México",      flag:"https://flagcdn.com/w40/mx.png",
+    comps:[ {label:"Liga MX",key:"mex_liga"} ] },
+  { id:"usa",  name:"EEUU",        flag:"https://flagcdn.com/w40/us.png",
+    comps:[ {label:"MLS",key:"usa_liga"} ] },
   { id:"esp",  name:"España",      flag:"https://flagcdn.com/w40/es.png",
     comps:[ {label:"LaLiga",key:"esp_liga"}, {label:"Copa del Rey",key:"esp_copa"}, {label:"Supercopa",key:"esp_super"} ] },
   { id:"eng",  name:"Inglaterra",  flag:"https://flagcdn.com/w40/gb-eng.png",
@@ -1395,6 +1412,10 @@ const CHAMP_COUNTRIES = [
     comps:[ {label:"Ligue 1",key:"fra_liga"}, {label:"Coupe de France",key:"fra_copa"} ] },
   { id:"por",  name:"Portugal",    flag:"https://flagcdn.com/w40/pt.png",
     comps:[ {label:"Liga Portugal",key:"por_liga"} ] },
+  { id:"ned",  name:"Holanda",      flag:"https://flagcdn.com/w40/nl.png",
+    comps:[ {label:"Eredivisie",key:"ned_liga"} ] },
+  { id:"sau",  name:"Arabia Saudita",flag:"https://flagcdn.com/w40/sa.png",
+    comps:[ {label:"Saudi Pro League",key:"sau_liga"} ] },
   { id:"ucl",  name:"Champions",   logo:"https://media.api-sports.io/football/leagues/2.png",
     comps:[ {label:"Champions League",key:"ucl"} ] },
   { id:"uel",  name:"Europa Lg",   logo:"https://media.api-sports.io/football/leagues/3.png",
@@ -1427,8 +1448,9 @@ function buildChampTabs() {
   panel.className = "league-selector-panel";
 
   const CHAMP_GROUPS = [
-    { continent:"América", paises:["arg","bra","uru","chi","col"], comps:["lib","sula"] },
-    { continent:"Europa",  paises:["esp","eng","ita","ger","fra","por"], comps:["ucl","uel","uecl"] },
+    { continent:"América", paises:["arg","bra","uru","chi","col","per","ecu","par","mex","usa"], comps:["lib","sula"] },
+    { continent:"Europa",  paises:["esp","eng","ita","ger","fra","por","ned"], comps:["ucl","uel","uecl"] },
+    { continent:"Asia / Medio Oriente", paises:["sau"], comps:[] },
   ];
 
   CHAMP_GROUPS.forEach(group => {
@@ -1533,12 +1555,18 @@ function logoImg(name, size) {
 }
 
 function renderChampionsHTML(items) {
-  const listHTML = items.map(s => `
-    <div class="champ-row">
+  const listHTML = items.map(s => {
+    const logoUrl  = logoCache[s.name] ?? s.logo ?? null;
+    const safeLogoUrl = logoUrl ? logoUrl.replace(/'/g, "\\'") : "";
+    const safeName = s.name.replace(/'/g, "\\'");
+    const safeSeasonLabel = (s.season ?? s.year).toString().replace(/'/g, "\\'");
+    return `
+    <div class="champ-row" onclick="openChampion('${activeChampKey}','${s.year}','${safeName}','${safeLogoUrl}','${safeSeasonLabel}')" style="cursor:pointer;">
       <div class="champ-year" style="flex:0 0 90px;text-align:left;">${s.season ?? s.year}</div>
       <div class="champ-logo">${logoImg(s.name, 34)}</div>
       <div class="champ-name">${s.name}</div>
-    </div>`).join("");
+    </div>`;
+  }).join("");
 
   document.getElementById("champ-list").innerHTML = `
     <div class="champ-list-wrap">
@@ -1597,3 +1625,325 @@ document.addEventListener("DOMContentLoaded", () => {
   const def = CHAMP_COUNTRIES.find(c => c.id === activeChampCountry);
   if (def) loadChampionsForCountry(def);
 });
+// ═══════════════════════════════════════════════════════════════════
+// MODAL DE CAMPEÓN
+// ═══════════════════════════════════════════════════════════════════
+
+// Competitions that have two phases: group stage + knockout bracket
+// These will show tabs in the modal
+const TWO_PHASE_COMPS = new Set(["ucl","uel","uecl","lib","sula"]);
+
+// Map comp key → league id + whether it has group stage
+const COMP_LID_MAP = {
+  ucl:  { lid:2,   hasGroups:true  },
+  uel:  { lid:3,   hasGroups:true  },
+  uecl: { lid:848, hasGroups:true  },
+  lib:  { lid:13,  hasGroups:true  },
+  sula: { lid:11,  hasGroups:true  },
+  // League comps (no groups, just standings)
+  arg_liga:   { lid:128, hasGroups:false },
+  arg_copa:   { lid:131, hasGroups:false },
+  esp_liga:   { lid:140, hasGroups:false },
+  esp_copa:   { lid:143, hasGroups:false },
+  esp_super:  { lid:null,hasGroups:false },
+  eng_liga:   { lid:39,  hasGroups:false },
+  eng_copa:   { lid:45,  hasGroups:false },
+  eng_carabao:{ lid:48,  hasGroups:false },
+  ita_liga:   { lid:135, hasGroups:false },
+  ita_copa:   { lid:137, hasGroups:false },
+  ger_liga:   { lid:78,  hasGroups:false },
+  ger_copa:   { lid:81,  hasGroups:false },
+  fra_liga:   { lid:61,  hasGroups:false },
+  fra_copa:   { lid:66,  hasGroups:false },
+  por_liga:   { lid:94,  hasGroups:false },
+  bra_liga:   { lid:71,  hasGroups:false },
+  bra_copa:   { lid:73,  hasGroups:false },
+  uru_liga:   { lid:268, hasGroups:false },
+  chi_liga:   { lid:265, hasGroups:false },
+  col_liga:   { lid:239, hasGroups:false },
+};
+
+let _champModalTab = "tabla"; // "tabla" | "eliminacion"
+let _champModalLid = null;
+let _champModalSeason = null;
+let _champModalCompKey = null;
+
+function slugifyChamp(str) {
+  return (str ?? "").toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function openChampion(compKey, season, teamName, teamLogo, seasonLabel) {
+  _champModalCompKey = compKey;
+  _champModalSeason  = season;
+  _champModalTab     = TWO_PHASE_COMPS.has(compKey) ? "tabla" : "tabla";
+
+  const info = COMP_LID_MAP[compKey];
+  _champModalLid = info?.lid ?? null;
+
+  document.getElementById("champ-modal").classList.add("open");
+  document.body.style.overflow = "hidden";
+
+  const slug = slugifyChamp(`${seasonLabel}-${teamName}`);
+  history.pushState({ compKey, season, slug }, "", `/campeon/${slug}?comp=${compKey}&season=${season}`);
+
+  _loadChampModal(compKey, season, teamName, teamLogo, seasonLabel);
+}
+
+function closeChampModal() {
+  document.getElementById("champ-modal").classList.remove("open");
+  document.body.style.overflow = "";
+  history.pushState({}, "", "/campeones.html");
+}
+
+function closeChampModalOnOverlay(e) {
+  if (e.target === document.getElementById("champ-modal")) closeChampModal();
+}
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && document.getElementById("champ-modal")?.classList.contains("open")) closeChampModal();
+});
+
+window.addEventListener("popstate", e => {
+  if (e.state?.compKey) {
+    // Re-open if navigating forward
+  } else {
+    const modal = document.getElementById("champ-modal");
+    if (modal?.classList.contains("open")) {
+      modal.classList.remove("open");
+      document.body.style.overflow = "";
+    }
+  }
+});
+
+// Auto-open on direct URL
+(function checkDirectChampURL() {
+  if (!window.location.pathname.startsWith("/campeon/")) return;
+  const params = new URLSearchParams(window.location.search);
+  const compKey = params.get("comp");
+  const season  = params.get("season");
+  if (!compKey || !season) return;
+  // Find the item in CHAMP_DATA
+  const items = CHAMP_DATA[compKey]?.items ?? [];
+  const item  = items.find(i => String(i.year) === season || i.season === season);
+  if (!item) return;
+  const compLabel = CHAMP_DATA[compKey]?.label ?? compKey;
+  window.addEventListener("DOMContentLoaded", () =>
+    openChampion(compKey, season, item.name, item.logo, item.season ?? item.year)
+  );
+})();
+
+async function _loadChampModal(compKey, season, teamName, teamLogo, seasonLabel) {
+  const box = document.getElementById("champ-modal-content");
+  const info  = COMP_LID_MAP[compKey];
+  const lid   = info?.lid ?? null;
+  const hasTwoPhases = TWO_PHASE_COMPS.has(compKey);
+  const compLabel = CHAMP_DATA[compKey]?.label ?? compKey;
+
+  // Header
+  const headerHTML = `
+    <div class="modal-header" style="position:relative;">
+      <div style="grid-column:1/-1;display:flex;flex-direction:column;align-items:center;gap:8px;padding:4px 0 10px;">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;">
+          ${teamLogo ? `<img src="${teamLogo}" style="width:56px;height:56px;object-fit:contain;" onerror="this.style.display='none'">` : ""}
+          <div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:28px;letter-spacing:1px;">${teamName}</div>
+            <div style="font-size:14px;color:var(--accent2);font-weight:700;margin-top:2px;">${compLabel} · ${seasonLabel}</div>
+          </div>
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeChampModal()">✕</button>
+    </div>`;
+
+  // Tabs — only for two-phase competitions
+  const tabsHTML = hasTwoPhases ? `
+    <div class="modal-tabs" id="champ-modal-tabs">
+      <button class="modal-tab ${_champModalTab==='tabla'?'active':''}" onclick="switchChampModalTab('tabla',${lid},'${season}')">Fase de Grupos</button>
+      <button class="modal-tab ${_champModalTab==='eliminacion'?'active':''}" onclick="switchChampModalTab('eliminacion',${lid},'${season}')">Eliminación</button>
+    </div>` : "";
+
+  box.innerHTML = headerHTML + tabsHTML + `<div class="modal-body" id="champ-modal-body">
+    <div class="modal-loader"><div class="spinner"></div><span>Cargando datos...</span></div>
+  </div>`;
+
+  // Load initial content
+  await _renderChampModalTab(_champModalTab, lid, season);
+}
+
+function switchChampModalTab(tab, lid, season) {
+  _champModalTab = tab;
+  document.querySelectorAll("#champ-modal-tabs .modal-tab").forEach(b => {
+    b.classList.toggle("active", b.textContent.trim().toLowerCase().includes(tab === "tabla" ? "grupo" : "elim"));
+  });
+  const body = document.getElementById("champ-modal-body");
+  body.innerHTML = `<div class="modal-loader"><div class="spinner"></div><span>Cargando...</span></div>`;
+  _renderChampModalTab(tab, lid, season);
+}
+
+// ── Manual bracket fallback structure (editable for old seasons) ──────────
+// CHAMP_BRACKETS[compKey+season] = { rounds: [ { name, matches: [{home,away,scoreHome,scoreAway}] } ] }
+const CHAMP_BRACKETS = {};
+
+// ── Manual standings fallback (editable for old seasons) ──────────────────
+// CHAMP_STANDINGS[compKey+season] = [ { pos, name, logo, pj, pg, pe, pp, gf, gc, pts, desc } ]
+const CHAMP_STANDINGS = {};
+
+function _manualBracketHTML(data) {
+  if (!data?.rounds?.length) return `<div class="modal-error" style="padding:24px;">Sin datos de bracket. Completar manualmente en <code>CHAMP_BRACKETS</code>.</div>`;
+  return `<div style="display:flex;flex-direction:column;gap:16px;padding:4px 0;">` +
+    data.rounds.map(round => `
+      <div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--accent2);padding:6px 0 8px;border-bottom:1px solid var(--border);margin-bottom:8px;">${round.name}</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          ${(round.matches ?? []).map(m => {
+            const hWin = m.scoreHome !== null && m.scoreAway !== null && m.scoreHome > m.scoreAway;
+            const aWin = m.scoreHome !== null && m.scoreAway !== null && m.scoreAway > m.scoreHome;
+            return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;overflow:hidden;display:flex;align-items:stretch;">
+              <div style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 12px;${hWin?'font-weight:700;color:var(--accent)':''}">
+                <span style="font-size:15px;">${m.home ?? '—'}</span>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:center;padding:0 14px;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:22px;border-left:1px solid var(--border);border-right:1px solid var(--border);flex-shrink:0;min-width:64px;">
+                ${(m.scoreHome !== null && m.scoreAway !== null) ? `${m.scoreHome} - ${m.scoreAway}` : 'vs'}
+              </div>
+              <div style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 12px;justify-content:flex-end;${aWin?'font-weight:700;color:var(--accent)':''}">
+                <span style="font-size:15px;">${m.away ?? '—'}</span>
+              </div>
+            </div>`;
+          }).join("")}
+        </div>
+      </div>`
+    ).join("") + `</div>`;
+}
+
+function _manualStandingsHTML(rows) {
+  if (!rows?.length) return `<div class="modal-error" style="padding:24px;">Sin datos. Completar manualmente en <code>CHAMP_STANDINGS</code>.</div>`;
+  return `<div style="overflow-x:auto;">
+    <table class="standings-full" style="min-width:560px;">
+      <thead><tr>
+        <th style="width:36px;text-align:left;">#</th>
+        <th style="text-align:left;">Equipo</th>
+        <th>PJ</th><th>G</th><th>E</th><th>P</th><th>GF</th><th>GC</th><th>DG</th><th>PTS</th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(r => {
+          const dif  = r.dif ?? ((r.gf ?? 0) - (r.gc ?? 0));
+          const logoEl = r.logo ? `<img src="${r.logo}" style="width:22px;height:22px;object-fit:contain;" onerror="this.style.display='none'">` : "";
+          const barClass = (typeof classifyPosition === "function") ? classifyPosition((r.desc ?? "").toLowerCase()).cls : "pos-none";
+          return `<tr>
+            <td><div style="display:flex;align-items:center;">
+              <span class="pos-bar ${barClass}"></span>
+              <span style="color:var(--light);font-size:17px;font-weight:800;">${r.pos ?? ""}</span>
+            </div></td>
+            <td><div style="display:flex;align-items:center;gap:7px;">${logoEl}<span style="font-size:15px;font-weight:600;">${r.name}</span></div></td>
+            <td>${r.pj ?? 0}</td><td>${r.pg ?? 0}</td><td>${r.pe ?? 0}</td><td>${r.pp ?? 0}</td>
+            <td>${r.gf ?? 0}</td><td>${r.gc ?? 0}</td>
+            <td>${dif > 0 ? "+" : ""}${dif}</td>
+            <td style="color:var(--accent);font-weight:900;font-size:18px;">${r.pts ?? 0}</td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+async function _renderChampModalTab(tab, lid, season) {
+  const body = document.getElementById("champ-modal-body");
+  const cacheKey = `${_champModalCompKey}${season}`;
+
+  if (tab === "eliminacion") {
+    // Check manual fallback first
+    const manualBracket = CHAMP_BRACKETS[cacheKey];
+    if (manualBracket) { body.innerHTML = _manualBracketHTML(manualBracket); return; }
+
+    if (!lid) { body.innerHTML = _manualBracketHTML(null); return; }
+
+    try {
+      // renderCupBracket is defined in tablas.js (loaded before this script)
+      if (typeof renderCupBracket === "function") {
+        await renderCupBracket(lid, season, body);
+      } else {
+        body.innerHTML = _manualBracketHTML(null);
+      }
+    } catch(e) {
+      body.innerHTML = _manualBracketHTML(null);
+    }
+    return;
+  }
+
+  // tabla / group stage standings
+  // Check manual fallback first
+  const manualRows = CHAMP_STANDINGS[cacheKey];
+  if (manualRows) { body.innerHTML = _manualStandingsHTML(manualRows); return; }
+
+  if (!lid) { body.innerHTML = _manualStandingsHTML(null); return; }
+
+  try {
+    const data = await apiFetch(`/api/standings?leagueid=${lid}&season=${season}`);
+    const groups = data?.response?.[0]?.league?.standings ?? [];
+    if (!groups.length) {
+      body.innerHTML = _manualStandingsHTML(null);
+      return;
+    }
+    const isMulti = groups.length > 1;
+    body.innerHTML = `<div style="overflow-x:auto;">` +
+      groups.map(group => {
+        const groupName = isMulti ? (group[0]?.group ?? "") : "";
+        return `
+          ${groupName ? `<div style="padding:7px 12px;background:var(--bg3);border-bottom:1px solid var(--border);font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--light);">${groupName}</div>` : ""}
+          <table class="standings-full" style="min-width:560px;">
+            <thead><tr>
+              <th style="width:36px;text-align:left;">#</th>
+              <th style="text-align:left;">Equipo</th>
+              <th>PJ</th><th>G</th><th>E</th><th>P</th><th>GF</th><th>GC</th><th>DG</th><th>PTS</th>
+            </tr></thead>
+            <tbody>
+              ${group.map((r, i) => {
+                const pos  = r.rank ?? i+1;
+                const name = r.team?.name ?? "";
+                const logo = r.team?.logo ?? null;
+                const pj   = r.all?.played ?? 0;
+                const gd   = r.all?.win    ?? 0;
+                const ge   = r.all?.draw   ?? 0;
+                const gp   = r.all?.lose   ?? 0;
+                const gf   = r.all?.goals?.for      ?? 0;
+                const gc   = r.all?.goals?.against  ?? 0;
+                const dif  = r.goalsDiff ?? (gf - gc);
+                const pts  = r.points ?? 0;
+                const desc = (r.description ?? "").toLowerCase();
+                const barClass = (typeof classifyPosition === "function") ? classifyPosition(desc).cls : "pos-none";
+                const logoEl = logo ? `<img src="${logo}" style="width:22px;height:22px;object-fit:contain;" onerror="this.style.display='none'">` : "";
+                return `<tr>
+                  <td><div style="display:flex;align-items:center;">
+                    <span class="pos-bar ${barClass}"></span>
+                    <span style="color:var(--light);font-size:17px;font-weight:800;">${pos}</span>
+                  </div></td>
+                  <td><div style="display:flex;align-items:center;gap:7px;">${logoEl}<span style="font-size:15px;font-weight:600;">${name}</span></div></td>
+                  <td>${pj}</td><td>${gd}</td><td>${ge}</td><td>${gp}</td>
+                  <td>${gf}</td><td>${gc}</td><td>${dif>0?"+":""}${dif}</td>
+                  <td style="color:var(--accent);font-weight:900;font-size:18px;">${pts}</td>
+                </tr>`;
+              }).join("")}
+            </tbody>
+          </table>
+          ${_buildLegend(group)}`;
+      }).join("") + `</div>`;
+  } catch(e) {
+    if (body) body.innerHTML = _manualStandingsHTML(null);
+  }
+}
+
+function _buildLegend(rows) {
+  if (typeof classifyPosition !== "function") return "";
+  const colorMap = { "pos-cl":"#29b6f6","pos-uel":"#ff9100","pos-uecl":"#ab47bc","pos-rep-lib":"#ab47bc","pos-rep-sul":"#ec407a","pos-rel":"var(--live)" };
+  const legendMap = {};
+  rows.forEach(r => {
+    const desc = (r.description ?? "").toLowerCase();
+    const { cls, label } = classifyPosition(desc);
+    if (cls !== "pos-none" && !legendMap[cls]) legendMap[cls] = label;
+  });
+  if (!Object.keys(legendMap).length) return "";
+  return `<div class="standings-legend">${Object.entries(legendMap).map(([cls, lbl]) =>
+    `<div class="legend-item"><div class="legend-dot" style="background:${colorMap[cls] ?? '#888'};"></div><span>${lbl}</span></div>`
+  ).join("")}</div>`;
+}

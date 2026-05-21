@@ -25,6 +25,11 @@ const LEAGUES = [
   { id:"uru",       name:"Uruguay",         flag:"https://flagcdn.com/w40/uy.png",    logo:"https://media.api-sports.io/football/leagues/268.png",  lid:268,  season:2024, leagueName:"Liga Uruguay" },
   { id:"chi",       name:"Chile",           flag:"https://flagcdn.com/w40/cl.png",    logo:"https://media.api-sports.io/football/leagues/265.png",  lid:265,  season:2024, leagueName:"Liga Chile" },
   { id:"col",       name:"Colombia",        flag:"https://flagcdn.com/w40/co.png",    logo:"https://media.api-sports.io/football/leagues/239.png",  lid:239,  season:2024, leagueName:"Liga Colombia" },
+  { id:"per",       name:"Perú",            flag:"https://flagcdn.com/w40/pe.png",    logo:"https://media.api-sports.io/football/leagues/281.png",  lid:281,  season:2024, leagueName:"Liga 1" },
+  { id:"ecu",       name:"Ecuador",         flag:"https://flagcdn.com/w40/ec.png",    logo:"https://media.api-sports.io/football/leagues/242.png",  lid:242,  season:2024, leagueName:"Liga Pro" },
+  { id:"par",       name:"Paraguay",        flag:"https://flagcdn.com/w40/py.png",    logo:"https://media.api-sports.io/football/leagues/250.png",  lid:250,  season:2024, leagueName:"División Profesional" },
+  { id:"mex",       name:"México",          flag:"https://flagcdn.com/w40/mx.png",    logo:"https://media.api-sports.io/football/leagues/262.png",  lid:262,  season:2024, leagueName:"Liga MX" },
+  { id:"usa",       name:"EEUU",            flag:"https://flagcdn.com/w40/us.png",    logo:"https://media.api-sports.io/football/leagues/253.png",  lid:253,  season:2024, leagueName:"MLS" },
   { id:"lib",       name:"Libertadores",    flag:null,                                logo:"https://media.api-sports.io/football/leagues/13.png",   lid:13,   season:2024 },
   { id:"sula",      name:"Sudamericana",    flag:null,                                logo:"https://media.api-sports.io/football/leagues/11.png",   lid:11,   season:2024 },
   // ── Europa ──
@@ -37,18 +42,27 @@ const LEAGUES = [
   { id:"ger",       name:"Alemania",        flag:"https://flagcdn.com/w40/de.png",    logo:"https://media.api-sports.io/football/leagues/78.png",   lid:78,   season:2024, leagueName:"Bundesliga" },
   { id:"fra",       name:"Francia",         flag:"https://flagcdn.com/w40/fr.png",    logo:"https://media.api-sports.io/football/leagues/61.png",   lid:61,   season:2024, leagueName:"Ligue 1" },
   { id:"por",       name:"Portugal",        flag:"https://flagcdn.com/w40/pt.png",    logo:"https://media.api-sports.io/football/leagues/94.png",   lid:94,   season:2024, leagueName:"Liga Portugal" },
+  { id:"ned",       name:"Holanda",          flag:"https://flagcdn.com/w40/nl.png",    logo:"https://media.api-sports.io/football/leagues/88.png",   lid:88,   season:2024, leagueName:"Eredivisie" },
+  { id:"sau",       name:"Arabia Saudita",   flag:"https://flagcdn.com/w40/sa.png",    logo:"https://media.api-sports.io/football/leagues/307.png",  lid:307,  season:2024, leagueName:"Saudi Pro League" },
   // ── Copas (hidden from main selector, used by sub-tabs) ──
-  { id:"arg_copa",  name:"Copa Argentina",  flag:"https://flagcdn.com/w40/ar.png",    logo:"https://media.api-sports.io/football/leagues/131.png",  lid:131,  season:2024, cup:true, parentId:"arg"  },
+  { id:"arg_copa",  name:"Copa Argentina",  flag:"https://flagcdn.com/w40/ar.png",    logo:"https://media.api-sports.io/football/leagues/130.png",  lid:130,  season:2024, cup:true, parentId:"arg"  },
   { id:"bra_copa",  name:"Copa Brasil",     flag:"https://flagcdn.com/w40/br.png",    logo:"https://media.api-sports.io/football/leagues/73.png",   lid:73,   season:2024, cup:true, parentId:"bra"  },
+  { id:"uru_copa",  name:"Copa Uruguay",    flag:"https://flagcdn.com/w40/uy.png",    logo:"https://media.api-sports.io/football/leagues/930.png",  lid:930,  season:2024, cup:true, parentId:"uru"  },
   { id:"chi_copa",  name:"Copa Chile",      flag:"https://flagcdn.com/w40/cl.png",    logo:"https://media.api-sports.io/football/leagues/266.png",  lid:266,  season:2024, cup:true, parentId:"chi"  },
   { id:"col_copa",  name:"Copa Colombia",   flag:"https://flagcdn.com/w40/co.png",    logo:"https://media.api-sports.io/football/leagues/241.png",  lid:241,  season:2024, cup:true, parentId:"col"  },
   { id:"esp_copa",  name:"Copa del Rey",    flag:"https://flagcdn.com/w40/es.png",    logo:"https://media.api-sports.io/football/leagues/143.png",  lid:143,  season:2024, cup:true, parentId:"esp"  },
+  { id:"esp_super", name:"Supercopa",       flag:"https://flagcdn.com/w40/es.png",    logo:"https://media.api-sports.io/football/leagues/556.png",  lid:556,  season:2024, cup:true, parentId:"esp"  },
   { id:"eng_fa",    name:"FA Cup",          flag:"https://flagcdn.com/w40/gb-eng.png",logo:"https://media.api-sports.io/football/leagues/45.png",   lid:45,   season:2024, cup:true, parentId:"epl"  },
   { id:"eng_lc",    name:"League Cup",      flag:"https://flagcdn.com/w40/gb-eng.png",logo:"https://media.api-sports.io/football/leagues/48.png",   lid:48,   season:2024, cup:true, parentId:"epl"  },
   { id:"ita_copa",  name:"Coppa Italia",    flag:"https://flagcdn.com/w40/it.png",    logo:"https://media.api-sports.io/football/leagues/137.png",  lid:137,  season:2024, cup:true, parentId:"ita"  },
+  { id:"ita_super", name:"Supercopa",       flag:"https://flagcdn.com/w40/it.png",    logo:"https://media.api-sports.io/football/leagues/547.png",  lid:547,  season:2024, cup:true, parentId:"ita"  },
   { id:"ger_copa",  name:"DFB Pokal",       flag:"https://flagcdn.com/w40/de.png",    logo:"https://media.api-sports.io/football/leagues/81.png",   lid:81,   season:2024, cup:true, parentId:"ger"  },
+  { id:"ger_super", name:"Supercopa",       flag:"https://flagcdn.com/w40/de.png",    logo:"https://media.api-sports.io/football/leagues/529.png",  lid:529,  season:2024, cup:true, parentId:"ger"  },
   { id:"fra_copa",  name:"Coupe de France", flag:"https://flagcdn.com/w40/fr.png",    logo:"https://media.api-sports.io/football/leagues/66.png",   lid:66,   season:2024, cup:true, parentId:"fra"  },
   { id:"por_copa",  name:"Taça de Portugal",flag:"https://flagcdn.com/w40/pt.png",    logo:"https://media.api-sports.io/football/leagues/96.png",   lid:96,   season:2024, cup:true, parentId:"por"  },
+  { id:"per_copa",  name:"Copa Bicentenario",flag:"https://flagcdn.com/w40/pe.png",    logo:"https://media.api-sports.io/football/leagues/283.png",  lid:283,  season:2024, cup:true, parentId:"per"  },
+  { id:"mex_copa",  name:"Copa MX",          flag:"https://flagcdn.com/w40/mx.png",    logo:"https://media.api-sports.io/football/leagues/265.png",  lid:265,  season:2024, cup:true, parentId:"mex"  },
+  { id:"ned_copa",  name:"KNVB Beker",       flag:"https://flagcdn.com/w40/nl.png",    logo:"https://media.api-sports.io/football/leagues/90.png",   lid:90,   season:2024, cup:true, parentId:"ned"  },
 ];
 
 // ─── HELPERS ─────────────────────────────────────────────────────
@@ -136,6 +150,8 @@ const goalsCache = {};
 
 function buildGoalsHTML(events, homeId) {
   let homeGoals = "", awayGoals = "";
+
+  // Goals
   events.filter(e => e.type === "Goal" && e.detail !== "Missed Penalty").forEach(e => {
     const isHome = e.team?.id === homeId;
     const player = (e.player?.name ?? "").split(" ").pop();
@@ -148,6 +164,17 @@ function buildGoalsHTML(events, homeId) {
     const entry  = `<div class="goal-entry"><span class="g-icon">${icon}</span><span class="g-name">${player}${tag}</span><span class="g-min">${min}${extra}′</span></div>`;
     if (isHome) homeGoals += entry; else awayGoals += entry;
   });
+
+  // Red cards (straight red or second yellow)
+  events.filter(e => e.type === "Card" && (e.detail === "Red Card" || e.detail === "Second Yellow card")).forEach(e => {
+    const isHome = e.team?.id === homeId;
+    const player = (e.player?.name ?? "").split(" ").pop();
+    const min    = e.time?.elapsed ?? "";
+    const extra  = e.time?.extra ? `+${e.time.extra}` : "";
+    const entry  = `<div class="goal-entry"><span class="g-icon red-card-icon">🟥</span><span class="g-name">${player}</span><span class="g-min">${min}${extra}′</span></div>`;
+    if (isHome) homeGoals += entry; else awayGoals += entry;
+  });
+
   if (!homeGoals && !awayGoals) return "";
   return `<div class="goals-side home">${homeGoals}</div>
           <div style="width:88px;flex-shrink:0;"></div>
@@ -311,13 +338,18 @@ document.addEventListener("click", (e) => {
 const LEAGUE_GROUPS = [
   {
     continent: "América",
-    paises: ["all","arg","bra","uru","chi","col"],
+    paises: ["all","arg","bra","uru","chi","col","per","ecu","par","mex","usa"],
     comps:   ["lib","sula"],
   },
   {
     continent: "Europa",
-    paises: ["epl","esp","ita","ger","fra","por"],
+    paises: ["epl","esp","ita","ger","fra","por","ned"],
     comps:   ["ucl","uel","uecl"],
+  },
+  {
+    continent: "Asia / Medio Oriente",
+    paises: ["sau"],
+    comps:   [],
   },
 ];
 

@@ -31,6 +31,67 @@ function openMatch(fid, homeName, awayName) {
   loadModalData(fid);
 }
 
+// Open a two-legged tie modal with IDA/VUELTA tabs above
+let _tieFidIda = null;
+let _tieFidV   = null;
+let _tieLeg    = "ida"; // "ida" | "vuelta"
+
+function openMatchTie(fidIda, fidV, homeName, awayName) {
+  const isPartidoPage = window.location.pathname.endsWith("partido.html");
+  if (isPartidoPage) return;
+  if (!fidIda) return;
+
+  _tieFidIda = fidIda;
+  _tieFidV   = fidV;
+  _tieLeg    = "ida";
+
+  modalTab   = "eventos";
+  _modalCache = null;
+
+  // Show leg selector above modal
+  _renderTieLegTabs();
+
+  document.getElementById("match-modal").classList.add("open");
+  document.body.style.overflow = "hidden";
+
+  const h = slugify(homeName ?? "local");
+  const a = slugify(awayName ?? "visitante");
+  const slug = `${h}-vs-${a}`;
+  history.pushState({ fid: fidIda, slug }, "", `/partido/${slug}?id=${fidIda}`);
+
+  modalFixtureId = fidIda;
+  loadModalData(fidIda);
+}
+
+function _renderTieLegTabs() {
+  // Inject tab bar above modal-box if not already present
+  const overlay = document.getElementById("match-modal");
+  let tabBar = document.getElementById("tie-leg-tabs");
+  if (!tabBar) {
+    tabBar = document.createElement("div");
+    tabBar.id = "tie-leg-tabs";
+    tabBar.className = "tie-leg-tabbar";
+    // Insert before the modal-box
+    const box = document.getElementById("modal-box");
+    overlay.insertBefore(tabBar, box);
+  }
+  tabBar.style.display = (_tieFidIda && _tieFidV) ? "flex" : "none";
+  tabBar.innerHTML = `
+    <button class="tie-leg-btn${_tieLeg === 'ida' ? ' active' : ''}" onclick="switchTieLeg('ida')">IDA</button>
+    <button class="tie-leg-btn${_tieLeg === 'vuelta' ? ' active' : ''}" onclick="switchTieLeg('vuelta')">VUELTA</button>
+  `;
+}
+
+function switchTieLeg(leg) {
+  _tieLeg = leg;
+  _renderTieLegTabs();
+  _modalCache = null;
+  modalTab = "eventos";
+  const fid = leg === "ida" ? _tieFidIda : _tieFidV;
+  modalFixtureId = fid;
+  loadModalData(fid);
+}
+
 function closeModal() {
   if (window.location.pathname.endsWith("partido.html")) {
     history.back();
@@ -39,6 +100,12 @@ function closeModal() {
   document.getElementById("match-modal").classList.remove("open");
   document.body.style.overflow = "";
   modalFixtureId = null;
+  _tieFidIda = null;
+  _tieFidV   = null;
+  _tieLeg    = "ida";
+  // Hide tie tabs
+  const tabBar = document.getElementById("tie-leg-tabs");
+  if (tabBar) tabBar.style.display = "none";
   // Restore URL to /
   history.pushState({}, "", "/");
 }

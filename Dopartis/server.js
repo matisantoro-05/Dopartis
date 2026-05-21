@@ -27,6 +27,16 @@ app.get("/partido/:slug", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
+// /equipo/:slug?id=XXXX → serve equipos.html
+app.get("/equipo/:slug", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "equipos.html"));
+});
+
+// /campeon/:slug?comp=KEY&season=XXXX → serve campeones.html
+app.get("/campeon/:slug", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "campeones.html"));
+});
+
 // Named page routes → serve corresponding HTML
 app.get("/tablas",       (req, res) => res.sendFile(path.join(__dirname, "public", "tablas.html")));
 app.get("/campeones",    (req, res) => res.sendFile(path.join(__dirname, "public", "campeones.html")));
@@ -433,6 +443,54 @@ app.get("/api/trophies", async (req, res) => {
     const { teamid } = req.query;
     if (!teamid) return res.status(400).json({ error: "Se requiere ?teamid" });
     const data = await fetchAPI("/trophies", { team: teamid }, 86400);
+    res.json(data);
+  } catch(e) { handleError(res, e); }
+});
+
+// ── INFO DETALLADA DE EQUIPO ──────────────────────────────────────
+// ?teamid=33
+app.get("/api/team/info", async (req, res) => {
+  try {
+    const { teamid } = req.query;
+    if (!teamid) return res.status(400).json({ error: "Se requiere ?teamid" });
+    const data = await fetchAPI("/teams", { id: teamid }, 86400);
+    res.json(data);
+  } catch(e) { handleError(res, e); }
+});
+
+// ── PLANTEL (SQUAD) DE EQUIPO ─────────────────────────────────────
+// ?teamid=33
+app.get("/api/team/squad", async (req, res) => {
+  try {
+    const { teamid } = req.query;
+    if (!teamid) return res.status(400).json({ error: "Se requiere ?teamid" });
+    const data = await fetchAPI("/players/squads", { team: teamid }, 3600);
+    res.json(data);
+  } catch(e) { handleError(res, e); }
+});
+
+// ── JUGADORES CON CONTRATO Y NACIONALIDAD ─────────────────────────
+// ?teamid=33&season=2025
+app.get("/api/team/players", async (req, res) => {
+  try {
+    const { teamid, season } = req.query;
+    if (!teamid) return res.status(400).json({ error: "Se requiere ?teamid" });
+    const s = season || new Date().getFullYear();
+    const data = await fetchAPI("/players", { team: teamid, season: s }, 3600);
+    res.json(data);
+  } catch(e) { handleError(res, e); }
+});
+
+// ── PARTIDOS DE EQUIPO (ÚLTIMOS + PRÓXIMOS) ───────────────────────
+// ?teamid=33&season=2025&last=10
+app.get("/api/team/fixtures", async (req, res) => {
+  try {
+    const { teamid, season, last, next } = req.query;
+    if (!teamid) return res.status(400).json({ error: "Se requiere ?teamid" });
+    const params = { team: teamid, season: season || new Date().getFullYear(), timezone: "America/Argentina/Buenos_Aires" };
+    if (last)  params.last = last;
+    if (next)  params.next = next;
+    const data = await fetchAPI("/fixtures", params, 300);
     res.json(data);
   } catch(e) { handleError(res, e); }
 });
